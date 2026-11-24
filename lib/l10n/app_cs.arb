@@ -1082,6 +1082,18 @@
   "@aboutApp": {
     "description": "Settings tile title to view app information."
   },
+  "sendTimingTitle": "Časování odeslání",
+  "@sendTimingTitle": {
+    "description": "Settings row and page title for the send timing debug list."
+  },
+  "sendTimingCopyAll": "Kopírovat vše",
+  "@sendTimingCopyAll": {
+    "description": "Action that copies every recorded send timing line to the clipboard."
+  },
+  "sendTimingEmpty": "Zatím nejsou zaznamenána žádná odeslání.",
+  "@sendTimingEmpty": {
+    "description": "Shown on the send timing page before any send has been timed."
+  },
   "aboutAppSubtitle": "Informace o Conduitu a odkazy",
   "@aboutAppSubtitle": {
     "description": "Subtitle/description for the About section."

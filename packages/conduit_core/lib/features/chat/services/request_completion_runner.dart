@@ -20,6 +20,7 @@ import 'package:conduit_core/services/worker_manager.dart';
 import 'package:conduit_core/sync/chat_locks.dart';
 import 'package:conduit_core/sync/outbox_drainer.dart';
 
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
 
 import '../providers/chat_providers.dart';
@@ -79,10 +80,15 @@ class ChatRequestCompletionRunner implements RequestCompletionRunner {
     required Map<String, dynamic> payload,
   }) {
     final releaseGeneration = holdLocalChatGeneration(_ref);
-    return _run(
-      chatId: chatId,
-      payload: payload,
-    ).whenComplete(releaseGeneration);
+    return _run(chatId: chatId, payload: payload)
+        .catchError((Object error, StackTrace stackTrace) {
+          final assistantMessageId = payload['assistantMessageId'];
+          if (assistantMessageId is String) {
+            ChatSendTiming.instance.fail(assistantMessageId);
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        })
+        .whenComplete(releaseGeneration);
   }
 
   Future<void> _run({

@@ -24,13 +24,13 @@ import 'package:clock/clock.dart' show clock;
 import 'package:dio/dio.dart' show CancelToken, DioException;
 import 'package:drift/drift.dart' show Value;
 import 'package:meta/meta.dart';
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/openwebui_request_variables.dart';
 import 'package:conduit_core/ports/app_lifecycle.dart';
 import 'package:conduit_core/ports/wakelock_port.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
-
 
 import 'package:conduit_core/auth/api_auth_interceptor.dart';
 import 'package:conduit_core/auth/openwebui_account_owner_marker.dart';

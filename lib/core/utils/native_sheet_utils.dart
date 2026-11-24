@@ -40,6 +40,8 @@ import '../../features/push/widgets/push_target_actions.dart'
 import '../../features/settings/pages/direct_connection_page_ids.dart';
 import '../../features/settings/pages/hermes_page_ids.dart';
 import '../../features/settings/pages/push_page_ids.dart';
+import '../../features/settings/pages/send_timing_settings_page.dart'
+    show sendTimingPageId;
 import 'account_display.dart';
 import 'message_action_settings.dart';
 import 'tts_voice_utils.dart';
@@ -103,6 +105,11 @@ List<NativeSheetItemConfig> buildNativeAboutItems(
     title: l10n.githubRepository,
     sfSymbol: 'chevron.left.forwardslash.chevron.right',
     url: conduitRepositoryUrl,
+  ),
+  NativeSheetItemConfig(
+    id: sendTimingPageId,
+    title: l10n.sendTimingTitle,
+    sfSymbol: 'timer',
   ),
   NativeSheetItemConfig(
     id: NativeSheetRoutes.openSourceLicenses,

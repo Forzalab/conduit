@@ -1345,6 +1345,18 @@
   "@aboutApp": {
     "description": "Settings tile title to view app information."
   },
+  "sendTimingTitle": "Send timing",
+  "@sendTimingTitle": {
+    "description": "Settings row and page title for the send timing debug list."
+  },
+  "sendTimingCopyAll": "Copy all",
+  "@sendTimingCopyAll": {
+    "description": "Action that copies every recorded send timing line to the clipboard."
+  },
+  "sendTimingEmpty": "No sends recorded yet.",
+  "@sendTimingEmpty": {
+    "description": "Shown on the send timing page before any send has been timed."
+  },
   "aboutAppSubtitle": "Version and links",
   "@aboutAppSubtitle": {
     "description": "Subtitle/description for the About section."

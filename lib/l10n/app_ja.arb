@@ -1082,6 +1082,9 @@
   "@aboutApp": {
     "description": "Settings tile title to view app information."
   },
+  "sendTimingTitle": "送信タイミング",
+  "sendTimingCopyAll": "すべてコピー",
+  "sendTimingEmpty": "まだ送信は記録されていません。",
   "aboutAppSubtitle": "Conduit の情報とリンク",
   "@aboutAppSubtitle": {
     "description": "Subtitle/description for the About section."

@@ -33,6 +33,9 @@ Future<void> runQueuedCompletion(
     throw StateError('runQueuedCompletion requires an API service');
   }
   api.beginSend(assistantMessageId, adopt: true);
+  final sendTiming = ChatSendTiming.instance.beginSend(
+    assistantMessageId: assistantMessageId,
+  );
   final selectedModel = ref.read(selectedModelProvider);
   // Empty model => fall back to the selected default model (mirrors the
   // migrator's empty-model contract). A still-empty model is a hard error.
@@ -65,9 +68,13 @@ Future<void> runQueuedCompletion(
   Map<String, dynamic>? userSettingsData;
   String? userSystemPrompt;
   try {
+    sendTiming?.startStep('user_settings');
     userSettingsData = await api.getUserSettings();
     userSystemPrompt = _extractSystemPromptFromSettings(userSettingsData);
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    sendTiming?.endStep('user_settings');
+  }
   requireActiveOwner();
   _rememberOpenWebUiUserSettings(
     ref,
@@ -100,14 +107,18 @@ Future<void> runQueuedCompletion(
   // the chat's own settings and, from version 2, for the global defaults and
   // system message too; an older op reads the chat's stored params and the
   // current globals.
-  final turnSettings = await _resolveOpenWebUiTurnSettings(
-    owner,
-    conversation: activeConversation,
-    snapshot: chatSettings,
-    pickerReasoningEffort:
-        selectedModel != null && selectedModel.id == effectiveModelId
-        ? reasoningEffortForModel(ref.read, selectedModel)
-        : null,
+  final turnSettings = await _timeStep(
+    sendTiming,
+    'turn_settings',
+    () => _resolveOpenWebUiTurnSettings(
+      owner,
+      conversation: activeConversation,
+      snapshot: chatSettings,
+      pickerReasoningEffort:
+          selectedModel != null && selectedModel.id == effectiveModelId
+          ? reasoningEffortForModel(ref.read, selectedModel)
+          : null,
+    ),
   );
   requireActiveOwner();
 
@@ -163,12 +174,14 @@ Future<void> runQueuedCompletion(
       : <String, dynamic>{'id': effectiveModelId, 'name': effectiveModelId};
   final socketService = _readOpenWebUiSocketForApi(ref, api);
   final socketSessionId =
-      sessionIdOverride ?? await _ensureConnectedSocketSessionId(socketService);
+      sessionIdOverride ??
+      await _connectTimedSocketSession(sendTiming, socketService);
   requireActiveOwner();
 
   List<Map<String, dynamic>>? toolServers;
   final admittedToolServers = <PersonalToolAdmission>[];
   try {
+    sendTiming?.startStep('tool_servers');
     toolServers = await _resolveToolServersForRequest(
       api: api,
       userSettings: userSettingsData,
@@ -176,7 +189,10 @@ Future<void> runQueuedCompletion(
       personalConnectionsAvailable: _personalConnectionsAvailable(ref),
       admitted: admittedToolServers,
     );
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    sendTiming?.endStep('tool_servers');
+  }
   requireActiveOwner();
 
   final bgTasks = _buildOpenWebUiBackgroundTasks(
@@ -200,6 +216,7 @@ Future<void> runQueuedCompletion(
   Map<String, dynamic>? promptVars2;
   Map<String, dynamic>? parentMsgMap;
   try {
+    sendTiming?.startStep('prompt_variables_location');
     promptVars2 = await _buildOpenWebUiPromptVariablesForRequest(
       ref,
       now: DateTime.now(),
@@ -216,7 +233,10 @@ Future<void> runQueuedCompletion(
         ],
       ),
     );
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    sendTiming?.endStep('prompt_variables_location');
+  }
   try {
     parentMsgMap = _buildOpenWebUiUserMessage(
       messages: messages,
@@ -280,6 +300,7 @@ Future<void> runQueuedCompletion(
         viaTether: viaTether,
         authSnapshot: owner.authSnapshot,
       );
+      sendTiming?.mark('post_sent');
     } on ChatCompletionStopped {
       await settleStoppedOpenWebUiCompletion(
         ref,

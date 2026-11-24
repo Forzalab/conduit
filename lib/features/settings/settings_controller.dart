@@ -23,9 +23,10 @@ import 'package:conduit_core/providers/app_providers.dart';
 import 'package:conduit_core/providers/openwebui_accounts_controller.dart'
     show OpenWebUiAccountChangeResult;
 import 'package:conduit_core/services/settings_service.dart';
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart' show TextInput;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, TextInput;
 import 'package:flutter/widgets.dart';
 
 import '../../core/services/native_sheet_bridge.dart';
@@ -51,6 +52,8 @@ import '../push/widgets/push_target_actions.dart'
     show setPushEnabledFromNativeSheet;
 import 'settings_page_module.dart';
 import 'pages/push_page_ids.dart' show pushTargetSignInActionId;
+import 'pages/send_timing_settings_page.dart'
+    show sendTimingCopyAllActionId, sendTimingPageId;
 import 'pages/server_address_settings_pages.dart'
     show
         serverAddressesAddAccountActionId,
@@ -421,6 +424,16 @@ class SettingsController {
     if (event == null) return;
     final value = event.value;
     try {
+      if (event.id == sendTimingCopyAllActionId) {
+        await Clipboard.setData(
+          ClipboardData(text: ChatSendTiming.instance.lines.join('\n')),
+        );
+        await ref
+            .read(nativeSheetHydrationServiceProvider)
+            .hydrateDetail(sendTimingPageId);
+        return;
+      }
+
       // Accountless (Hermes, Direct, Apple) "Connect to Open WebUI" row.
       // Dismiss the native sheet and route into the OWUI connect flow (the
       // router allows the serverConnection route for accountless users).
