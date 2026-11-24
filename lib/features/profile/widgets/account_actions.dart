@@ -20,6 +20,7 @@ import 'package:go_router/go_router.dart';
 import 'package:conduit/shared/widgets/platform_ui/vocabulary.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../core/preset/preset_login.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/utils/ui_utils.dart';
 import '../../../shared/widgets/sign_out_options_dialog.dart';
@@ -104,6 +105,7 @@ Future<bool> useHermesConnectionReading(
 /// Signs out of every account, after asking whether to keep the servers'
 /// details for signing in again.
 Future<void> signOutOfAllAccounts(BuildContext context, WidgetRef ref) async {
+  if (isPresetBuild) return;
   final keepServerDetails = await showSignOutOptionsDialog(context);
   if (!context.mounted || keepServerDetails == null) return;
   try {
@@ -349,6 +351,7 @@ Future<void> signOutOfSavedAccount(
   OpenWebUiAccountEntry entry, {
   BuildContext? anchorContext,
 }) async {
+  if (isPresetBuild) return;
   final l10n = AppLocalizations.of(context)!;
   final name = accountDisplayName(entry, l10n);
   final confirmed = await ThemedDialogs.confirm(
@@ -466,6 +469,7 @@ Future<void> signOutOfLibreChatAccount(
   LibreChatAccount account, {
   BuildContext? anchorContext,
 }) async {
+  if (isPresetBuild) return;
   final l10n = AppLocalizations.of(context)!;
   final confirmed = await ThemedDialogs.confirm(
     context,

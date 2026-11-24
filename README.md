@@ -361,6 +361,31 @@ flutter run -d ios   # or: flutter run -d android
 Clone recursively and run `build_runner`. The Mermaid renderer is a submodule,
 and generated Dart files are git-ignored.
 
+## Preset builds
+
+An Android build can carry a server and an email, so its first launch opens
+the sign-in form for that server with the email filled in. The password is
+typed once on the device and kept in encrypted storage for silent re-login;
+it is never compiled in. A build without the values behaves like a stock build.
+
+```bash
+flutter build apk --release --flavor mom \
+  --dart-define-from-file=<file outside repo> \
+  -P conduitPushVariant=foss
+```
+
+`--flavor mom` builds Mimi (`com.forzalab.conduit`); `--flavor dad` builds
+Tito (`com.forzalab.tito`). The file holds two keys:
+
+```json
+{
+  "PRESET_SERVER_URL": "<server URL>",
+  "PRESET_EMAIL": "<account email>"
+}
+```
+
+A preset build hides the sign-out actions.
+
 ## Contributing
 
 Conduit is actively developed and feedback is welcome.

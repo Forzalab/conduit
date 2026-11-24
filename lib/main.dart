@@ -59,6 +59,7 @@ import 'package:conduit_core/network/conduit_user_agent.dart';
 import 'package:conduit_core/services/user_trusted_certificates.dart';
 
 import 'core/persistence/hive_bootstrap.dart';
+import 'core/preset/preset_login.dart';
 import 'core/utils/model_logos.dart';
 
 import 'package:conduit_core/persistence/hive_prefs_migrator.dart';
@@ -607,6 +608,9 @@ void main() {
       installConduitErrorWidgetBuilder();
 
       await modelLogosLoaded;
+      // Before the router resolves its first redirect, so a preset sign-in is
+      // already in place when it decides where to start.
+      await runPresetLogin(providerContainer.read);
       runApp(
         UncontrolledProviderScope(
           container: providerContainer,

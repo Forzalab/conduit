@@ -16,9 +16,9 @@ if (keystorePropertiesFile.exists()) {
 // Which push build this is. "play" (the default) delivers push through
 // Firebase Cloud Messaging and keeps ML Kit speech recognition. "foss" has no
 // Google Play services or Firebase code at all, for F-Droid and IzzyOnDroid.
-// Both ship UnifiedPush. A Gradle property rather than product flavors keeps
-// `flutter run` and every existing build command working unchanged:
-//   flutter build apk -P conduitPushVariant=foss
+// Both ship UnifiedPush. It is a Gradle property, separate from the mom/dad
+// product flavors below, so every build names a flavor too:
+//   flutter build apk --flavor mom -P conduitPushVariant=foss
 val conduitPushVariant: String =
     providers.gradleProperty("conduitPushVariant").orNull?.trim()?.lowercase()?.ifEmpty { null }
         ?: "play"
@@ -69,6 +69,21 @@ android {
                 abiFilters.clear()
                 abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
             }
+        }
+    }
+
+    flavorDimensions += "who"
+
+    productFlavors {
+        create("mom") {
+            dimension = "who"
+            applicationId = "com.forzalab.conduit"
+            manifestPlaceholders["appLabel"] = "Mimi"
+        }
+        create("dad") {
+            dimension = "who"
+            applicationId = "com.forzalab.tito"
+            manifestPlaceholders["appLabel"] = "Tito"
         }
     }
 
