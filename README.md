@@ -1,3 +1,12 @@
+<p align="center">
+  <strong>Modified fork.</strong> This repository is a fork of
+  <a href="https://github.com/cogwheel0/conduit">cogwheel0/conduit</a> at
+  <code>1bc6cb3</code>, modified on 2026-11-23 by Forzalab. Android builds in
+  this fork use the application id <code>com.forzalab.conduit</code> and the
+  label <code>Mimi</code>. Licensed under GPL-3.0; see
+  <a href="LICENSE">LICENSE</a>.
+</p>
+
 <h1 align="center">Conduit</h1>
 
 <p align="center">
