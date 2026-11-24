@@ -1,58 +1,16 @@
 import 'package:conduit_core/auth/auth_state_manager.dart';
-import 'package:conduit_core/auth/openwebui_server_address.dart'
-    show serverNameFromUrl;
 import 'package:conduit_core/models/server_config.dart';
 import 'package:conduit_core/providers/app_providers.dart';
 import 'package:conduit_core/services/api_service.dart';
-import 'package:conduit_core/utils/debug_logger.dart';
 import 'package:flutter/foundation.dart' show mapEquals, visibleForTesting;
 import 'package:riverpod/misc.dart' show ProviderListenable;
-import 'package:uuid/uuid.dart';
 
-const String _presetServerUrl = String.fromEnvironment('PRESET_SERVER_URL');
-const String presetEmail = String.fromEnvironment('PRESET_EMAIL');
+export 'package:conduit_core/preset/preset_build.dart';
 
-/// Whether this build carries a preset server.
-///
-/// A preset build starts on the sign-in form for that server. The password is
-/// typed once and kept by [AuthStateManager] for silent re-login; it is never
-/// compiled in.
-bool get isPresetBuild => _presetServerUrl.trim().isNotEmpty;
 
 /// Reads a provider without listening: `Ref.read`, `WidgetRef.read` and
 /// `ProviderContainer.read` all fit.
 typedef PresetProviderRead = T Function<T>(ProviderListenable<T> provider);
-
-/// Saves the preset server when this install has none, before the router
-/// resolves its first redirect. A build without [PRESET_SERVER_URL], or one
-/// with a server already saved, does nothing.
-Future<void> runPresetLogin(PresetProviderRead read) async {
-  final serverUrl = _presetServerUrl.trim();
-  if (serverUrl.isEmpty) return;
-
-  try {
-    final savedConfigs = await read(serverConfigsProvider.future);
-    if (savedConfigs.isNotEmpty) return;
-
-    final url = normalizeAuthenticationServerUrl(serverUrl);
-    await saveServerConfigForSignIn(
-      read,
-      ServerConfig(
-        id: const Uuid().v4(),
-        name: serverNameFromUrl(url),
-        url: url,
-        isActive: true,
-      ),
-    );
-  } catch (error, stackTrace) {
-    DebugLogger.error(
-      'preset-server-save-failed',
-      scope: 'auth/preset',
-      error: error,
-      stackTrace: stackTrace,
-    );
-  }
-}
 
 /// Makes [config] the active server, signed out, and waits for its client.
 Future<void> saveServerConfigForSignIn(

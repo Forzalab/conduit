@@ -1,3 +1,4 @@
+import '../preset/preset_build.dart';
 import 'package:conduit_core/auth/auth_state_manager.dart';
 import 'package:conduit_core/features/auth/providers/unified_auth_providers.dart';
 import 'package:conduit_core/features/direct_connections/providers/direct_connection_providers.dart';
@@ -152,6 +153,13 @@ String? resolveRouteRedirect(String location, ProviderRead read) {
   final usesAccountlessPrimaryBackend = read(
     accountlessPrimaryBackendUsableProvider,
   );
+  // A preset build has one server: with none saved yet it skips the chooser
+  // and opens the server page, which fills in and submits the preset address.
+  if (isPresetBuild &&
+      location == Routes.backendChooser &&
+      !(activeServerAsync.asData?.value != null)) {
+    return Routes.serverConnection;
+  }
   final isLocalBackendSetup =
       location == Routes.backendChooser ||
       location == Routes.libreChatSignIn ||
@@ -334,7 +342,7 @@ String? resolveRouteRedirect(String location, ProviderRead read) {
         location == Routes.login) {
       return null;
     }
-    return Routes.backendChooser;
+    return isPresetBuild ? Routes.serverConnection : Routes.backendChooser;
   }
 
   // Allow staying on server connection page
