@@ -1,3 +1,4 @@
+import 'package:conduit_core/preset/preset_build.dart';
 import 'dart:async';
 
 import 'package:conduit/shared/widgets/platform_ui/platform_ui.dart';
@@ -495,7 +496,13 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
 
   Future<void> _prefillFromState() async {
     final activeServer = await ref.read(activeServerProvider.future);
-    if (!mounted || activeServer == null) return;
+    if (!mounted) return;
+    if (activeServer == null) {
+      if (!isPresetBuild) return;
+      _urlController.text = presetServerUrl.trim();
+      await _connectToServer();
+      return;
+    }
     _applyConfig(activeServer);
   }
 
