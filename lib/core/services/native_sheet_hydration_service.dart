@@ -100,6 +100,8 @@ import '../../features/settings/pages/push_page_ids.dart'
     show buildPushTargetLoadingPage;
 import '../../features/settings/pages/push_settings_pages.dart'
     show buildPushPrivacyPage, pushTargetChildPages;
+import '../../features/settings/pages/send_timing_settings_page.dart'
+    show buildSendTimingDetail, sendTimingPageId;
 import '../../features/settings/settings_page_module.dart';
 import '../../features/settings/settings_pages.dart';
 import '../../features/chat/widgets/model_control_labels.dart';
@@ -1033,6 +1035,9 @@ class NativeSheetHydrationService {
           detailId: NativeSheetRoutes.helpAbout,
         );
         return;
+      case sendTimingPageId:
+        await _applyNativeDetail(buildSendTimingDetail(l10n));
+        return;
       case NativeSheetRoutes.about:
         await _hydrateNativeAboutDetail(ctx, l10n);
         return;
@@ -1133,6 +1138,11 @@ class NativeSheetHydrationService {
             l10n: l10n,
             id: NativeSheetRoutes.openSourceLicenses,
             title: l10n.openSourceLicenses,
+          ),
+          buildNativeLoadingDetail(
+            l10n: l10n,
+            id: sendTimingPageId,
+            title: l10n.sendTimingTitle,
           ),
         ],
       );

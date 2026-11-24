@@ -94,6 +94,7 @@ import 'package:conduit_core/models/model.dart' show Model;
 import '../../../shared/utils/external_link_launcher.dart';
 
 import 'package:conduit_core/utils/debug_logger.dart';
+import 'package:conduit_core/utils/chat_send_timing.dart';
 
 import '../../../core/services/haptic_service.dart';
 
@@ -575,6 +576,15 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         _displayedContent = raw;
       }
       _displayedContentListenable.value = raw;
+      if (widget.isStreaming && previousLength == 0 && raw.trim().isNotEmpty) {
+        final messageId = widget.message.id;
+        if (messageId is String) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            ChatSendTiming.instance.markFirstPaint(messageId);
+          });
+        }
+      }
       if (shouldFadeStreamingContent) {
         _streamingContentFadeController.forward();
       }

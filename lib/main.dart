@@ -107,6 +107,7 @@ import 'features/release_notes/release_notes_coordinator.dart';
 import 'l10n/conduit_localizations.dart';
 import 'shared/widgets/legacy_design_compatibility.dart';
 
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
 
 import 'core/utils/system_ui_style.dart';
@@ -204,6 +205,7 @@ void main() {
   // Diagnostics have no destination until a host gives them one.
   // Installed first, so startup itself is logged.
   DebugLogger.sink = const FlutterLogSink();
+  ChatSendTiming.instance.debugLineSink = debugPrint;
   AudioPlaybackPort.hostFactory = JustAudioPlayback.new;
   installReadAloudHost();
   BackgroundExecutionPort.hostDefault = const MobileBackgroundExecution();

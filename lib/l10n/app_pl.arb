@@ -1320,6 +1320,9 @@
   "@aboutApp": {
     "description": "Settings tile title to view app information."
   },
+  "sendTimingTitle": "Czas wysyłania",
+  "sendTimingCopyAll": "Kopiuj wszystko",
+  "sendTimingEmpty": "Nie zapisano jeszcze żadnych wysyłek.",
   "aboutAppSubtitle": "Informacje i linki o Conduit",
   "@aboutAppSubtitle": {
     "description": "Subtitle/description for the About section."

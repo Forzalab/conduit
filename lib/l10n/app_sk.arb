@@ -1082,6 +1082,9 @@
   "@aboutApp": {
     "description": "Settings tile title to view app information."
   },
+  "sendTimingTitle": "Časovanie odoslania",
+  "sendTimingCopyAll": "Kopírovať všetko",
+  "sendTimingEmpty": "Zatiaľ nie sú zaznamenané žiadne odoslania.",
   "aboutAppSubtitle": "Informácie o Conduite a odkazy",
   "@aboutAppSubtitle": {
     "description": "Subtitle/description for the About section."

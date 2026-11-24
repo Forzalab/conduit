@@ -89,6 +89,7 @@ import '../services/native_stt_service.dart';
 import 'package:conduit_core/services/location_service.dart';
 
 import 'package:conduit_core/services/settings_service.dart';
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
 
 import '../../chat/services/voice_input_service.dart';
@@ -1118,6 +1119,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     final sendDraft = widget.onSendDraft;
     if (sendDraft != null) {
+      ChatSendTiming.instance.tap();
       unawaited(
         _sendOwnedDraft(
           _captureComposerOwner(),
@@ -1130,6 +1132,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     final wireText = _outgoingText();
 
+    ChatSendTiming.instance.tap();
     widget.onSendMessage(wireText);
     _controller.clearMentions();
     _controller.clear();
