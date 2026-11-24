@@ -72,6 +72,21 @@ android {
         }
     }
 
+    flavorDimensions += "who"
+
+    productFlavors {
+        create("mom") {
+            dimension = "who"
+            applicationId = "com.forzalab.conduit"
+            manifestPlaceholders["appLabel"] = "Mimi"
+        }
+        create("dad") {
+            dimension = "who"
+            applicationId = "com.forzalab.tito"
+            manifestPlaceholders["appLabel"] = "Tito"
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }

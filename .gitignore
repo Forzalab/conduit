@@ -173,3 +173,4 @@ relay/target/
 
 # T3 Code worktree setup markers (tool/setup_worktree.dart).
 .t3/
+android/.kotlin/

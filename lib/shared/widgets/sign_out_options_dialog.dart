@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:conduit/l10n/app_localizations.dart';
 
+import '../../core/preset/preset_login.dart';
 import '../../core/services/haptic_service.dart';
 import '../theme/theme_extensions.dart';
 import 'conduit_components.dart';
@@ -11,6 +12,7 @@ import 'themed_dialogs.dart';
 /// details should remain on this device. A null result means the user
 /// cancelled.
 Future<bool?> showSignOutOptionsDialog(BuildContext context) {
+  if (isPresetBuild) return Future<bool?>.value(null);
   return ThemedDialogs.showCustom<bool>(
     context: context,
     builder: (_) => const _SignOutOptionsDialog(),
