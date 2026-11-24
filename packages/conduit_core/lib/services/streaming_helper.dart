@@ -25,6 +25,7 @@ import 'package:conduit_core/services/chat_completion_transport.dart';
 
 import 'package:conduit_core/features/chat/utils/file_utils.dart'
     show inferFileTypeFromUrl;
+import 'package:conduit_core/utils/chat_send_timing.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
 
 import 'package:conduit_core/utils/openwebui_source_parser.dart';
@@ -1193,6 +1194,9 @@ ActiveChatStream attachUnifiedChunkedStreaming({
     bool fromStructuredOutput = false,
     String? plainContent,
   }) {
+    if (content.trim().isNotEmpty) {
+      ChatSendTiming.instance.markFirstContent(assistantMessageId);
+    }
     lastRawContentSnapshot = null;
     resetStreamingReasoning();
     renderedStreamingContent.replace(content);
@@ -1465,6 +1469,9 @@ ActiveChatStream attachUnifiedChunkedStreaming({
     bool includeInPlainContent = true,
   }) {
     if (chunk.isEmpty) return;
+    if (includeInPlainContent) {
+      ChatSendTiming.instance.markFirstContent(assistantMessageId);
+    }
     lastRawContentSnapshot = null;
     if (includeInPlainContent) {
       // The projector defers full re-projections (geometric backoff), so the

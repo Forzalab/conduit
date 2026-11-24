@@ -428,6 +428,10 @@ Future<void> durableSend(
   // payload all share `assistantMessageId`.
   final userMessageId = const Uuid().v4();
   final assistantMessageId = const Uuid().v4();
+  ChatSendTiming.instance.beginSend(
+    assistantMessageId: assistantMessageId,
+    userMessageId: userMessageId,
+  );
 
   // ---- optimistic UI (instant; NON-NEGOTIABLE 4) ----
   final sentContextAttachments =

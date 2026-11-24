@@ -280,6 +280,10 @@ Future<void> _sendMessageInternal(
   // after fetching server info.
   final userMessageId = const Uuid().v4();
   final String assistantMessageId = const Uuid().v4();
+  final sendTiming = ChatSendTiming.instance.beginSend(
+    assistantMessageId: assistantMessageId,
+    userMessageId: userMessageId,
+  );
   var userMessage = _withUserVoice(
     ChatMessage(
       id: userMessageId,
@@ -952,7 +956,12 @@ Future<void> _sendMessageInternal(
 
   if (!reviewerMode && api != null) {
     // Fetch user settings and server file info in parallel
-    final settingsFuture = api.getUserSettings().catchError((_) => null);
+    sendTiming?.startStep('user_settings');
+    final settingsFuture = api
+        .getUserSettings()
+        .catchError((_) => null)
+        .whenComplete(() => sendTiming?.endStep('user_settings'));
+    if (serverFileIds.isNotEmpty) sendTiming?.startStep('file_info');
     final fileInfoFutures = serverFileIds.map((fileId) async {
       try {
         final fileInfo = await api.getFileInfo(fileId);
@@ -996,6 +1005,7 @@ Future<void> _sendMessageInternal(
 
     // Wait for all async work to complete in parallel
     final fileInfoResults = await Future.wait(fileInfoFutures);
+    if (serverFileIds.isNotEmpty) sendTiming?.endStep('file_info');
     userSettingsData = await settingsFuture;
 
     if (userSettingsData != null) {
@@ -1034,7 +1044,7 @@ Future<void> _sendMessageInternal(
       // session that changes before the request renames the chat then.
       final socket = _readOpenWebUiSocketForApi(ref, api);
       final socketSessionId = ref.read(temporaryChatNeedsSocketProvider)
-          ? await _ensureConnectedSocketSessionId(socket)
+          ? await _connectTimedSocketSession(sendTiming, socket)
           : _connectedSocketSessionId(socket);
       // The user may have opened another chat while the socket connected.
       if (!chatMutationTokenStillActive(ref, sendMutationOwner)) {
@@ -1087,6 +1097,7 @@ Future<void> _sendMessageInternal(
               'models': <String>[serverModelId],
             },
           );
+          sendTiming?.startStep('create_conversation');
           final serverConversation = await api.createConversation(
             title: 'New Chat',
             messages: [lightweightMessage],
@@ -1096,6 +1107,7 @@ Future<void> _sendMessageInternal(
                 ? null
                 : draftChatParamsAtSendStart,
           );
+          sendTiming?.endStep('create_conversation');
 
           // Clear the pending folder ID after successful creation
           ref.read(pendingFolderIdProvider.notifier).clear();
@@ -1181,13 +1193,17 @@ Future<void> _sendMessageInternal(
     // Simulate token-by-token streaming
     final words = responseText.split(' ');
     for (final word in words) {
+      sendTiming?.startStep('delay_40ms');
       await Future.delayed(const Duration(milliseconds: 40));
+      sendTiming?.endStep('delay_40ms');
       ref.read(chatMessagesProvider.notifier).appendToLastMessage('$word ');
     }
     ref.read(chatMessagesProvider.notifier).finishStreaming();
 
     // Save locally
+    sendTiming?.startStep('save_local');
     await _saveConversationLocally(ref);
+    sendTiming?.endStep('save_local');
     return;
   }
 
@@ -1309,10 +1325,14 @@ Future<void> _sendMessageInternal(
                 activeConversation?.chatParams ?? const <String, dynamic>{},
             reasoningEffort: pickerReasoningEffort,
           )
-        : await _resolveOpenWebUiTurnSettings(
-            submittedOwner,
-            conversation: submittedConversation,
-            pickerReasoningEffort: pickerReasoningEffort,
+        : await _timeStep(
+            sendTiming,
+            'turn_settings',
+            () => _resolveOpenWebUiTurnSettings(
+              submittedOwner,
+              conversation: submittedConversation,
+              pickerReasoningEffort: pickerReasoningEffort,
+            ),
           );
     requireOpenWebUiPreflightOwner();
     _insertOpenWebUiSystemMessage(
@@ -1329,7 +1349,8 @@ Future<void> _sendMessageInternal(
     // Reconnect before choosing session_id so eligible sends stay on the
     // task/socket transport instead of falling back to fragile HTTP streaming.
     final socketService = _readOpenWebUiSocketForApi(ref, api);
-    final socketSessionId = await _ensureConnectedSocketSessionId(
+    final socketSessionId = await _connectTimedSocketSession(
+      sendTiming,
       socketService,
     );
     if (openWebUiDirectRoute != null && socketSessionId == null) {
@@ -1365,6 +1386,7 @@ Future<void> _sendMessageInternal(
     List<Map<String, dynamic>>? toolServers;
     final admittedToolServers = <PersonalToolAdmission>[];
     try {
+      sendTiming?.startStep('tool_servers');
       toolServers = await _resolveToolServersForRequest(
         api: api,
         userSettings: userSettingsData,
@@ -1374,7 +1396,10 @@ Future<void> _sendMessageInternal(
             _clearUnresolvedPersonalToolSelections(ref, ids),
         admitted: admittedToolServers,
       );
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      sendTiming?.endStep('tool_servers');
+    }
     requireOpenWebUiPreflightOwner();
     final terminalIdForApi = terminalIdForModelRequest(
       selectedModel,
@@ -1423,6 +1448,7 @@ Future<void> _sendMessageInternal(
     Map<String, dynamic>? promptVariables;
     Map<String, dynamic>? userMessageMap;
     try {
+      sendTiming?.startStep('prompt_variables_location');
       promptVariables = await _buildOpenWebUiPromptVariablesForRequest(
         ref,
         now: DateTime.now(),
@@ -1438,6 +1464,8 @@ Future<void> _sendMessageInternal(
         scope: 'chat/providers',
         error: e,
       );
+    } finally {
+      sendTiming?.endStep('prompt_variables_location');
     }
     requireOpenWebUiPreflightOwner();
 
@@ -1519,8 +1547,10 @@ Future<void> _sendMessageInternal(
           viaTether: answerViaTether(placeholder),
           authSnapshot: submittedOwner?.authSnapshot,
         );
+        sendTiming?.mark('post_sent');
       } on ChatCompletionHeld {
         // Only a saved chat is held, so it has an owner.
+        ChatSendTiming.instance.fail(assistantMessageId);
         await settleHeldOpenWebUiCompletion(
           ref,
           api: api,
@@ -1636,6 +1666,7 @@ Future<void> _sendMessageInternal(
     clearSentContextAttachments();
     return;
   } catch (e, st) {
+    ChatSendTiming.instance.fail(assistantMessageId);
     // Clean up buffering on error
     DebugLogger.error(
       '_sendMessageInternal failed: $e',
@@ -1927,6 +1958,28 @@ Future<void> _saveConversationLocally(dynamic ref) async {
     );
   }
 }
+
+Future<T> _timeStep<T>(
+  ChatSendTimingRecord? timing,
+  String name,
+  Future<T> Function() run,
+) async {
+  timing?.startStep(name);
+  try {
+    return await run();
+  } finally {
+    timing?.endStep(name);
+  }
+}
+
+Future<String?> _connectTimedSocketSession(
+  ChatSendTimingRecord? timing,
+  SocketService? socket,
+) => _timeStep(
+  timing,
+  'socket_session',
+  () => _ensureConnectedSocketSessionId(socket),
+);
 
 String _generateConversationTitle(List<ChatMessage> messages) {
   final firstUserMessage = messages.firstWhere(
