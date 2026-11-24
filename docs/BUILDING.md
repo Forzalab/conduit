@@ -145,7 +145,7 @@ wait for work.
 
 ```bash
 # Android
-flutter build apk --target-platform android-arm,android-arm64 --release
+flutter build apk --flavor mom --target-platform android-arm,android-arm64 --release
 flutter build appbundle --target-platform android-arm,android-arm64 --release
 
 # iOS
@@ -166,7 +166,7 @@ keep building `play`.
 | `foss` | UnifiedPush only. No Firebase, Google Play services or ML Kit code. | F-Droid, IzzyOnDroid |
 
 ```bash
-flutter build apk --release -P conduitPushVariant=foss
+flutter build apk --flavor mom --release -P conduitPushVariant=foss
 # Gradle directly
 cd android && ./gradlew :app:assembleRelease -PconduitPushVariant=foss
 ```
