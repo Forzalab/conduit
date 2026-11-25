@@ -36,6 +36,13 @@ pub fn trailing_room(sidebar_shown: bool, cx: &App) -> f32 {
     crate::chrome::active(cx).map_or(0., |chrome| chrome.rooms(sidebar_shown).end)
 }
 
+/// Whether a window without chrome of the app's own (Settings, the setup
+/// window) draws under a transparent title bar: on the Mac, where AppKit's
+/// traffic lights sit over its content. Elsewhere the OS draws the title
+/// bar, with its caption buttons and drag (Windows draws none for a
+/// transparent one; the X11 window manager frames it either way).
+pub const OS_TITLE_BAR_TRANSPARENT: bool = cfg!(target_os = "macos");
+
 /// The main window's default and minimum size.
 pub const MAIN_WINDOW_SIZE: (f32, f32) = (1280., 860.);
 pub const MAIN_WINDOW_MIN: (f32, f32) = (720., 480.);
@@ -84,6 +91,13 @@ pub fn quick_ask_options(bounds: Bounds<Pixels>, focus: bool) -> WindowOptions {
     }
 }
 
+/// The app id a window opens with when its options name none: on Linux the
+/// desktop entry's name, which X11's `WM_CLASS` and Wayland's app id carry
+/// so docks group the windows with their launcher.
+pub struct WindowAppId(pub String);
+
+impl gpui_kit::Global for WindowAppId {}
+
 /// How far clear of a scrolled list's edges a control that takes keyboard
 /// focus is brought (points).
 pub const FOCUS_REVEAL_INSET: f32 = 24.;
@@ -91,10 +105,13 @@ pub const FOCUS_REVEAL_INSET: f32 = 24.;
 /// `gpui_kit::open_window`, but with the Root's background cleared so
 /// `Transparent` windows and NSVisualEffectViews show through.
 pub fn open_window_clear_root<V: Render>(
-    options: WindowOptions,
+    mut options: WindowOptions,
     cx: &mut App,
     build: impl FnOnce(&mut Window, &mut App) -> Entity<V>,
 ) -> gpui_kit::Result<(AnyWindowHandle, Entity<V>)> {
+    if options.app_id.is_none() {
+        options.app_id = cx.try_global::<WindowAppId>().map(|id| id.0.clone());
+    }
     let mut built = None;
     let window = cx.open_window(options, |window, cx| {
         // Keyboard focus moving into a scrolled list brings the control into

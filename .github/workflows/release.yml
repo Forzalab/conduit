@@ -157,10 +157,10 @@ jobs:
         working-directory: android
       
       - name: Build APK
-        run: flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --dart-define=CONDUIT_PUSH_RELAY_URL="$CONDUIT_PUSH_RELAY_URL"
+        run: flutter build apk --flavor mom --split-per-abi --target-platform android-arm,android-arm64 --release --dart-define=CONDUIT_PUSH_RELAY_URL="$CONDUIT_PUSH_RELAY_URL"
 
       - name: Build appBundle
-        run: flutter build appbundle --target-platform android-arm,android-arm64 --release --dart-define=CONDUIT_PUSH_RELAY_URL="$CONDUIT_PUSH_RELAY_URL"
+        run: flutter build appbundle --flavor mom --target-platform android-arm,android-arm64 --release --dart-define=CONDUIT_PUSH_RELAY_URL="$CONDUIT_PUSH_RELAY_URL"
 
       # The FOSS build (UnifiedPush only, no Google code) writes the same APK
       # names, so the Play APKs are set aside first.
@@ -168,11 +168,11 @@ jobs:
         run: |
           mkdir -p build/release-apks
           for abi in arm64-v8a armeabi-v7a; do
-            mv "build/app/outputs/flutter-apk/app-$abi-release.apk" build/release-apks/
+            mv "build/app/outputs/flutter-apk/app-$abi-mom-release.apk" "build/release-apks/app-$abi-release.apk"
           done
-          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release -P conduitPushVariant=foss
+          flutter build apk --flavor mom --split-per-abi --target-platform android-arm,android-arm64 --release -P conduitPushVariant=foss
           for abi in arm64-v8a armeabi-v7a; do
-            mv "build/app/outputs/flutter-apk/app-$abi-release.apk" "build/release-apks/app-$abi-foss-release.apk"
+            mv "build/app/outputs/flutter-apk/app-$abi-mom-release.apk" "build/release-apks/app-$abi-foss-release.apk"
           done
 
       # Both only read the built files.
@@ -183,11 +183,11 @@ jobs:
               name: Android-Release
               path: |
                 build/release-apks/*.apk
-                build/app/outputs/bundle/release/app-release.aab
+                build/app/outputs/bundle/momRelease/app-mom-release.aab
           - name: Update Release with Artifacts
             uses: ncipollo/release-action@v1
             with:
-              artifacts: "build/release-apks/*.apk,build/app/outputs/bundle/release/app-release.aab"
+              artifacts: "build/release-apks/*.apk,build/app/outputs/bundle/momRelease/app-mom-release.aab"
               tag: ${{ github.ref_name }}
               token: ${{ secrets.GITHUB_TOKEN }}
               allowUpdates: true

@@ -12,7 +12,7 @@ import 'package:clock/clock.dart';
 /// background loads find an empty account rather than an error.
 ///
 /// With [models] set it also takes the core's Open WebUI sends, as
-/// [FakeOwuiChats] describes: a polling socket, chats made and saved, and
+/// [FakeOwuiChats] describes: a socket, chats made and saved, and
 /// each answer run as a task whose words arrive on the socket, with a hold
 /// at admission and one on the stream.
 final class FakeOwuiAuthServer {
@@ -53,6 +53,11 @@ final class FakeOwuiAuthServer {
   int settingsToPass = 0;
   Completer<void> settingsAsked = Completer<void>();
   Completer<void> sessionChecked = Completer<void>();
+
+  /// While set, a read of the model list waits for it; [modelsAsked]
+  /// completes as one reaches it.
+  Completer<void>? holdModels;
+  Completer<void> modelsAsked = Completer<void>();
 
   /// While set, a sign-in proxy in front turns every request away with its
   /// own sign-in page (HTML), as an expired proxy session does -- but one
@@ -134,6 +139,8 @@ final class FakeOwuiAuthServer {
     chats._close();
     final settings = holdSettings;
     if (settings != null && !settings.isCompleted) settings.complete();
+    final models = holdModels;
+    if (models != null && !models.isCompleted) models.complete();
     return _server.close(force: true);
   }
 
@@ -148,6 +155,11 @@ final class FakeOwuiAuthServer {
     }
 
     final path = request.uri.path;
+    if (models.isNotEmpty &&
+        path.startsWith('/ws/socket.io') &&
+        request.uri.queryParameters['sid'] == null) {
+      chats._handshake(request.uri.queryParameters['transport'] ?? '');
+    }
     if (chats._stopped) {
       // The server process is gone: the connection drops unanswered.
       final socket = await response.detachSocket(writeHeaders: false);
@@ -228,7 +240,7 @@ final class FakeOwuiAuthServer {
           'enable_api_key': true,
           'enable_signup': false,
           'enable_login_form': true,
-          'enable_websocket': models.isNotEmpty,
+          'enable_websocket': models.isNotEmpty && !chats.servesPolling,
         },
       });
     }
@@ -324,6 +336,10 @@ final class FakeOwuiAuthServer {
       return json(<String, dynamic>{'status': true});
     }
     if (path == '/api/models' || path == '/api/v1/models') {
+      if (holdModels case final hold?) {
+        if (!modelsAsked.isCompleted) modelsAsked.complete();
+        await hold.future;
+      }
       return json(<String, dynamic>{
         'data': <Object>[
           for (final id in models)
@@ -481,6 +497,10 @@ final class FakeOwuiChats {
   /// Open WebUI keeps a message's id only for a batch of one.
   bool answerHeldInPlace = false;
 
+  /// Tool calls answered with `POST /api/v1/chats/{id}/messages/{id}/resolve`,
+  /// as `chatId/messageId`.
+  final List<String> resolutions = <String>[];
+
   /// Messages deleted with `DELETE /api/v1/chats/{id}/messages/{id}`, as
   /// `chatId/messageId`.
   final List<String> deletedMessages = <String>[];
@@ -494,6 +514,27 @@ final class FakeOwuiChats {
     final now = clock.now().millisecondsSinceEpoch ~/ 1000;
     final last = row['updated_at'] as int? ?? 0;
     row['updated_at'] = now > last ? now : last + 1;
+  }
+
+  /// Whether the socket is served over long-polling, as Open WebUI with its
+  /// WebSocket support off serves it (and says in its config), instead of
+  /// over a websocket. Off, as Open WebUI's default is: a websocket alone,
+  /// and every polling handshake answered 400 "Invalid transport".
+  bool servesPolling = false;
+
+  /// The transport of every Engine.IO handshake asked for, in order
+  /// (`websocket` or `polling`), the ones a stopped server drops included.
+  final List<String> socketHandshakes = <String>[];
+  final StreamController<String> _handshakes =
+      StreamController<String>.broadcast(sync: true);
+
+  /// The transports of the next [count] Engine.IO handshakes to arrive.
+  Future<List<String>> nextSocketHandshakes(int count) =>
+      _handshakes.stream.take(count).toList();
+
+  void _handshake(String transport) {
+    socketHandshakes.add(transport);
+    if (!_handshakes.isClosed) _handshakes.add(transport);
   }
 
   // The socket: one Engine.IO session at a time, over a websocket or by
@@ -576,6 +617,7 @@ final class FakeOwuiChats {
 
   void _close() {
     _closed = true;
+    unawaited(_handshakes.close());
     _push('1');
     unawaited(_webSocket?.close());
     for (final hold in <Completer<void>?>[
@@ -646,6 +688,9 @@ final class FakeOwuiChats {
 
     if (_refusing) return reply(HttpStatus.badRequest, 'Transport not allowed');
     if (WebSocketTransformer.isUpgradeRequest(request)) {
+      if (servesPolling) {
+        return reply(HttpStatus.badRequest, '"Invalid transport"');
+      }
       final socket = await WebSocketTransformer.upgrade(request);
       if (_refusing) {
         await socket.close();
@@ -678,6 +723,9 @@ final class FakeOwuiChats {
         onError: (Object _) {},
       );
       return;
+    }
+    if (!servesPolling) {
+      return reply(HttpStatus.badRequest, '"Invalid transport"');
     }
     final sid = request.uri.queryParameters['sid'];
     if (sid == null) {
@@ -1016,6 +1064,26 @@ final class FakeOwuiChats {
       await request.drain<void>();
       return json(stored.values.where((row) => row['archived'] == true).length);
     }
+    // A chat's archive toggled, as Open WebUI's `/{id}/archive` does: the
+    // chat as it is now.
+    final archive = RegExp(r'^/api/v1/chats/([^/]+)/archive$').firstMatch(path);
+    if (request.method == 'POST' &&
+        archive != null &&
+        stored.containsKey(archive[1])) {
+      await request.drain<void>();
+      final row = stored[archive[1]]!;
+      row['archived'] = row['archived'] != true;
+      return json(row);
+    }
+    // A chat's delete, as Open WebUI answers it: `true`.
+    final chatDeleted = RegExp(r'^/api/v1/chats/([^/]+)$').firstMatch(path);
+    if (request.method == 'DELETE' &&
+        chatDeleted != null &&
+        stored.containsKey(chatDeleted[1])) {
+      await request.drain<void>();
+      stored.remove(chatDeleted[1]);
+      return json(true);
+    }
     final deleted = RegExp(r'^/api/v1/chats/([^/]+)/messages/([^/]+)$')
         .firstMatch(path);
     if (request.method == 'DELETE' &&
@@ -1146,6 +1214,31 @@ final class FakeOwuiChats {
         'task_ids': <String>[task],
         'chat_id': chat,
       });
+    }
+    // A tool call answered: the answer that asked goes on as a task.
+    final resolve = RegExp(
+      r'^/api/v1/chats/([^/]+)/messages/([^/]+)/resolve$',
+    ).firstMatch(path);
+    if (post && resolve != null) {
+      await request.drain<void>();
+      final chat = resolve[1]!;
+      if (!stored.containsKey(chat)) {
+        return json(<String, dynamic>{'detail': 'not found'}, 404);
+      }
+      resolutions.add('$chat/${resolve[2]}');
+      final task = 'task-${++_tasks}';
+      _running[task] = chat;
+      unawaited(_run(task, chat, resolve[2]!, null));
+      return json(<String, dynamic>{
+        'task_ids': <String>[task],
+      });
+    }
+    // Merge Responses, streamed in the response as Open WebUI streams it,
+    // and held after its first word as an answer is ([holdStream]).
+    if (post && path == '/api/v1/tasks/moa/completions') {
+      await request.drain<void>();
+      await _streamTo(response, null);
+      return true;
     }
     if (post && path.startsWith('/api/tasks/stop/')) {
       await request.drain<void>();

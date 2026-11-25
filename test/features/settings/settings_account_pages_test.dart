@@ -431,6 +431,7 @@ void main() {
       'server-version',
       NativeSheetRoutes.releaseNotesManual,
       'github',
+      'send-timing',
       NativeSheetRoutes.openSourceLicenses,
     ]);
   });

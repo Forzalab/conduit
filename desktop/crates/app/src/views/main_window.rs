@@ -196,8 +196,10 @@ impl MainWindow {
             cx.observe_window_bounds(window, |this, window, cx| {
                 let bounds = window.window_bounds();
                 this.layout.update(cx, |l, cx| l.set_bounds(bounds, cx));
-                // View › Enter or Exit Full Screen.
-                crate::menus::set_full_screen(window.is_fullscreen(), cx);
+                // View › Enter or Exit Full Screen, after this update: the
+                // menus read this window.
+                let full_screen = window.is_fullscreen();
+                cx.defer(move |cx| crate::menus::set_full_screen(full_screen, cx));
             }),
             // Keyboard Navigation may have been switched in System Settings.
             cx.observe_window_activation(window, |_, window, cx| {
@@ -216,11 +218,13 @@ impl MainWindow {
                 }
             }),
         ];
+        let focus = cx.focus_handle();
         let main_menu = ChromeStyle::native().map(|style| {
             let items: conduit_components::chrome::MenuItems =
                 std::rc::Rc::new(move |_, cx| crate::menus::chrome_menu_items(style, cx));
             let name = cx.l10n().desktop_main_menu();
-            cx.new(|cx| MainMenu::new(style, name, items, window, cx))
+            let home = focus.clone();
+            cx.new(|cx| MainMenu::new(style, name, items, window, cx).home(home))
         });
         let mut subscriptions = subscriptions;
         if main_menu.is_some() {
@@ -230,7 +234,6 @@ impl MainWindow {
             subscriptions.push(cx.observe_window_activation(window, |_, _, cx| cx.notify()));
             subscriptions.push(cx.observe_window_bounds(window, |_, _, cx| cx.notify()));
         }
-        let focus = cx.focus_handle();
         window.focus(&focus, cx);
         Self {
             stores,
@@ -1290,6 +1293,23 @@ mod chat_menu_tests {
             )
         });
         daemon
+    }
+
+    /// The main window going full screen (F11, View › Enter Full Screen)
+    /// reaches the View menu: its bounds change while the window is being
+    /// updated, and the menus read the main window.
+    #[gpui_kit::test]
+    fn going_full_screen_reaches_the_view_menu(cx: &mut TestAppContext) {
+        let daemon = chats();
+        let (stores, settings, view, vcx) = bench_with_settings(&daemon, cx);
+        crate::install_main_for_test(stores, settings, view, vcx);
+        vcx.update(|window, _| window.toggle_fullscreen());
+        vcx.simulate_resize(gpui_kit::size(gpui_kit::px(1280.), gpui_kit::px(800.)));
+        vcx.run_until_parked();
+        assert!(
+            vcx.cx.update(|cx| crate::menus::menu_state(cx).full_screen),
+            "the View menu still offers Enter Full Screen"
+        );
     }
 
     /// `conduit://clipboard`, then a chat link, in one batch: the chat
