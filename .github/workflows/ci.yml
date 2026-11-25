@@ -212,9 +212,9 @@ jobs:
       # an APK the unit tests never use.
       - name: Android native tests
         run: |
-          flutter build apk --config-only
+          flutter build apk --config-only --flavor mom
           cd android
-          ./gradlew --build-cache :app:testDebugUnitTest -Ptarget-platform=android-arm64
+          ./gradlew --build-cache :app:testMomDebugUnitTest -Ptarget-platform=android-arm64
       # The foss build (F-Droid, IzzyOnDroid) must compile without, and
       # never pull in, Firebase or Google Play services. Its release APK, the
       # one those stores ship, is built too, so R8 shrinks it with
@@ -222,14 +222,14 @@ jobs:
       - name: Android foss build
         run: |
           cd android
-          ./gradlew --build-cache :app:testDebugUnitTest -Ptarget-platform=android-arm64 -PconduitPushVariant=foss
-          ./gradlew -q :app:dependencies --configuration releaseRuntimeClasspath \
+          ./gradlew --build-cache :app:testMomDebugUnitTest -Ptarget-platform=android-arm64 -PconduitPushVariant=foss
+          ./gradlew -q :app:dependencies --configuration momReleaseRuntimeClasspath \
             -PconduitPushVariant=foss > "$RUNNER_TEMP/foss-dependencies.txt"
           if grep -E 'com\.google\.(firebase|android\.gms|mlkit)' "$RUNNER_TEMP/foss-dependencies.txt"; then
             echo "::error::The foss build depends on Firebase, Play services or ML Kit"
             exit 1
           fi
-          ./gradlew --build-cache :app:assembleRelease -Ptarget-platform=android-arm64 -PconduitPushVariant=foss
+          ./gradlew --build-cache :app:assembleMomRelease -Ptarget-platform=android-arm64 -PconduitPushVariant=foss
       - if: github.event_name == 'push' && steps.build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
