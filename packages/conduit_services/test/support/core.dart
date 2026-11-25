@@ -9,12 +9,15 @@ import 'package:conduit_core/persistence/preferences_store.dart';
 import 'package:conduit_core/ports/ports.dart';
 import 'package:conduit_core/services/settings_service.dart'
     show AppSettingsHostDefaults;
+import 'package:conduit_core/sync/outbox_drainer.dart'
+    show outboxDrainGateProvider;
 import 'package:conduit_protocol/conduit_protocol.dart';
 import 'package:conduit_services/conduit_services.dart';
 import 'package:drift/drift.dart'
     show ApplyInterceptor, QueryExecutor, QueryInterceptor;
 import 'package:drift/native.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:riverpod/misc.dart' show Override;
 import 'package:test/test.dart' show addTearDown;
 
 import 'fake_owui_auth_server.dart';
@@ -25,15 +28,28 @@ import 'fake_owui_auth_server.dart';
 /// values so what the tests expect is unchanged.
 ///
 /// [interceptDatabase], given a database's file name, returns what that
-/// database's queries and close go through (null for none).
+/// database's queries and close go through (null for none). [databases]
+/// replaces the account databases in [dataDir], [preferences] the
+/// preferences kept in memory, and the schedulers and [lifecycle] the
+/// root's own. [outboxDrainGate], when given, is what every outbox drain
+/// waits for first ([outboxDrainGateProvider]): a test that must decide
+/// when this device's changes reach the server passes one it opens itself.
 Future<CoreRuntime> startTestCore(
   Directory dataDir, {
   QueryInterceptor? Function(String fileName)? interceptDatabase,
+  DatabaseOpenerPort? databases,
+  KeyValueStore? preferences,
+  FlushScheduler? flushScheduler,
+  PostFrameScheduler? postFrameScheduler,
+  AppLifecyclePort? lifecycle,
+  Future<void> Function()? outboxDrainGate,
 }) async {
   // `PreferencesStore` is process-wide and keeps the first store it loads,
   // so each runtime gets its own rather than one an earlier test left.
   PreferencesStore.debugReset();
-  PreferencesStore.installLoader(() async => InMemoryKeyValueStore());
+  PreferencesStore.installLoader(
+    () async => preferences ?? InMemoryKeyValueStore(),
+  );
   await PreferencesStore.ensureInitialized();
 
   Hive.init('${dataDir.path}/hive');
@@ -64,14 +80,20 @@ Future<CoreRuntime> startTestCore(
           attachmentQueue: await open(HiveBoxNames.attachmentQueue),
           metadata: await open(HiveBoxNames.metadata),
         ),
-        databaseOpener: _TestDatabases(
-          Directory('${dataDir.path}/db'),
-          interceptDatabase,
-        ),
+        databaseOpener:
+            databases ??
+            _TestDatabases(Directory('${dataDir.path}/db'), interceptDatabase),
         worker: const DaemonWorkerPort(),
         connectivity: connectivity,
         reportNetwork: connectivity.report,
+        overrides: <Override>[
+          if (outboxDrainGate != null)
+            outboxDrainGateProvider.overrideWithValue(outboxDrainGate),
+        ],
         close: close,
+        flushScheduler: flushScheduler,
+        postFrameScheduler: postFrameScheduler,
+        lifecycle: lifecycle,
       ),
       policy: const CoreHostPolicy(
         settingsDefaults: AppSettingsHostDefaults(
